@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>목표 달성 타이머</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: #fdf8f4;
+      padding: 20px;
+    }
+    .container {
+      max-width: 400px;
+      margin: auto;
+      text-align: center;
+    }
+    .goal-card {
+      background: linear-gradient(135deg, #e8e2f7, #f3f0ff);
+      border-radius: 25px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .timer {
+      background: white;
+      border-radius: 30px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    .svg-container {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: auto;
+    }
+    svg {
+      transform: rotate(-90deg);
+    }
+    .timer-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 26px;
+      font-weight: bold;
+    }
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn {
+      padding: 10px 16px;
+      border-radius: 20px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .start { background: #10b981; color: white; }
+    .pause { background: #ffa726; color: white; }
+    .reset { background: #6b7280; color: white; }
+    .stop { background: #ef4444; color: white; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function formatTime(total) {
+      const m = Math.floor(total / 60).toString().padStart(2, '0');
+      const s = (total % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    const GoalCard = ({ plan }) => (
+      <div className="goal-card">
+        <h3>{plan.emoji} {plan.title}</h3>
+        <p>{plan.memo}</p>
+      </div>
+    );
+
+    const Timer = ({ seconds, isRunning, onToggle, onReset, onStop, targetMinutes }) => {
+      const radius = 90;
+      const circumference = 2 * Math.PI * radius;
+      const progress = (seconds / (targetMinutes * 60)) * 100;
+      const offset = Math.max(circumference - (progress / 100) * circumference, 0);
+      const isOver = seconds > targetMinutes * 60;
+
+      return (
+        <div className="timer">
+          <div className="svg-container">
+            <svg width="200" height="200">
+              <defs>
+                <linearGradient id="overGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ffa726" />
+                  <stop offset="100%" stopColor="#ef4444" />
+                </linearGradient>
+              </defs>
+              <circle cx="100" cy="100" r={radius} stroke="#e8e2f7" strokeWidth="12" fill="none" />
+              <circle
+                cx="100" cy="100" r={radius}
+                stroke={isOver ? "url(#overGradient)" : "#ffa726"}
+                strokeWidth="12" fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="timer-text">{formatTime(seconds)}</div>
+          </div>
+          <p>/ {formatTime(targetMinutes * 60)}</p>
+          {isOver && <p style={{ color: '#ffa726' }}>초과: +{formatTime(seconds - targetMinutes * 60)}</p>}
+
+          <div className="buttons">
+            <button className={"btn " + (isRunning ? "pause" : "start")} onClick={onToggle}>
+              {isRunning ? "⏸ 일시정지" : "▶ 시작"}
+            </button>
+            <button className="btn stop" onClick={onStop}>✅ 종료</button>
+            <button className="btn reset" onClick={onReset}>🔁 초기화</button>
+          </div>
+        </div>
+      );
+    };
+
+    const AchievementInput = ({ onSubmit }) => {
+      const [value, setValue] = useState(50);
+      const emoji = value <= 20 ? "😭" : value <= 40 ? "😓" : value <= 60 ? "🙂" : value >= 80 ? "😍" : "😄";
+
+      return (
+        <div className="timer">
+          <h3>📊 오늘 목표 달성률을 선택해주세요!</h3>
+          <input type="range" min="0" max="100" value={value} onChange={e => setValue(parseInt(e.target.value))} />
+          <p>{emoji} {value}%</p>
+          <button className="btn start" onClick={() => onSubmit(value)}>✅ 입력 완료</button>
+        </div>
+      );
+    };
+
+    const FeedbackCard = ({ plan, seconds, achievement }) => {
+      const getEmoji = val => val <= 30 ? "😓" : val <= 70 ? "🙂" : "😄";
+      const getText = val => val <= 30 ? "낮음" : val <= 70 ? "보통" : "높음";
+
+      return (
+        <div className="timer">
+          <h3>🌟 오늘의 학습 완료!</h3>
+          <p>{plan.emoji} {plan.title}</p>
+          <p>⏱ 총 학습 시간: {formatTime(seconds)}</p>
+          <p>{getEmoji(achievement)} 목표 달성률: {getText(achievement)}</p>
+          <button className="btn start" onClick={() => {
+            // set plan done
+            const plans = JSON.parse(localStorage.getItem("userPlans")) || [];
+            const updatedPlans = plans.map(p =>
+              p.id === plan.id ? { ...p, done: true, achievement: achievement, duration: seconds } : p
+            );
+            localStorage.setItem("userPlans", JSON.stringify(updatedPlans));
+            // reset currentPlanID
+            localStorage.setItem("currentPlanID", JSON.stringify({}));
+            // jump to home
+            window.location.href = "./study_planner_home_(ver. REACT).html";
+          }}>확인</button>
+        </div>
+      );
+    };
+
+    function App() {
+      const [seconds, setSeconds] = useState(0);
+      const [isRunning, setIsRunning] = useState(false);
+      const [phase, setPhase] = useState('timer');
+      const [achievement, setAchievement] = useState(50);
+      const [showResumeModal, setShowResumeModal] = useState(false);
+      const [resumeValue, setResumeValue] = useState(0);
+
+      const planID = Number(localStorage.getItem("currentPlanID"));
+      const plans = JSON.parse(localStorage.getItem("userPlans")) || [];
+      const plan = !isNaN(planID) ? plans.find(p => p.id === planID) : {
+        emoji: "🎯",
+        title: "목표 없음",
+        memo: "",
+        start: "08:00",
+        end: "09:00",
+        id: 0,
+        done: false,
+        duration: 0,
+        achievement: 0
+      };
+      const [sh, sm] = plan.start.split(':').map(Number);
+      const [eh, em] = plan.end.split(':').map(Number);
+      const targetMinutes = (eh * 60 + em) - (sh * 60 + sm);
+      const timerRef = useRef(null);
+
+      // 타이머 시작/중지
+      useEffect(() => {
+        if (isRunning) {
+          timerRef.current = setInterval(() => setSeconds(prev => prev + 1), 1000);
+        } else {
+          clearInterval(timerRef.current);
+        }
+        return () => clearInterval(timerRef.current);
+      }, [isRunning]);
+
+      // seconds가 바뀔 때마다 plans의 duration도 업데이트
+      useEffect(() => {
+        if (!plan || !plan.id) return;
+        const updatedPlans = plans.map(p =>
+          p.id === plan.id ? { ...p, duration: seconds } : p
+        );
+        localStorage.setItem("userPlans", JSON.stringify(updatedPlans));
+      }, [seconds, plan.id]);
+
+      // 페이지 로드 시 저장된 duration 불러오기 + resume modal
+      useEffect(() => {
+        if (!plan || !plan.id) return;
+        const saved = Number(plan.duration || 0);
+        if (!isNaN(saved) && saved > 0) {
+          setResumeValue(saved);
+          setShowResumeModal(true);
+        } else {
+          setSeconds(0);
+        }
+      }, [plan.id]);
+
+      const handleResume = (resume) => {
+        setShowResumeModal(false);
+        if (resume) {
+          setSeconds(resumeValue);
+        } else {
+          setSeconds(0);
+          // duration도 0으로 초기화
+          const updatedPlans = plans.map(p =>
+            p.id === plan.id ? { ...p, duration: 0 } : p
+          );
+          localStorage.setItem("userPlans", JSON.stringify(updatedPlans));
+        }
+      };
+
+      const resetAll = () => {
+        setSeconds(0);
+        setIsRunning(false);
+        setAchievement(50);
+        setPhase('timer');
+      };
+
+      return (
+        <div className="container">
+          <GoalCard plan={plan}/>
+          {showResumeModal && (
+            <div style={{
+              position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+              background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000
+            }}>
+              <div style={{
+                background: "#fff", borderRadius: 16, padding: 32, minWidth: 260, textAlign: "center", boxShadow: "0 4px 16px rgba(0,0,0,0.08)"
+              }}>
+                <h3>저장된 타이머가 있습니다</h3>
+                <p>이전에 저장된 시간 <b>{formatTime(resumeValue)}</b>부터 이어서 시작할까요?</p>
+                <div style={{marginTop: 20, display: "flex", gap: 12, justifyContent: "center"}}>
+                  <button className="btn start" onClick={() => handleResume(true)}>예</button>
+                  <button className="btn reset" onClick={() => handleResume(false)}>아니오</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {!showResumeModal && phase === 'timer' && (
+            <Timer
+              seconds={seconds}
+              isRunning={isRunning}
+              onToggle={() => setIsRunning(!isRunning)}
+              onReset={() => { setSeconds(0); setIsRunning(false); }}
+              onStop={() => { setIsRunning(false); setPhase('confirm'); }}
+              targetMinutes={targetMinutes}
+            />
+          )}
+          {!showResumeModal && phase === 'confirm' && (
+            <div className="timer">
+              <h3>실제로 종료하겠습니까?</h3>
+              <div className="buttons">
+                <button className="btn stop" onClick={() => setPhase('achievement')}>YES</button>
+                <button className="btn reset" onClick={() => setPhase('timer')}>NO</button>
+              </div>
+            </div>
+          )}
+          {!showResumeModal && phase === 'achievement' && (
+            <AchievementInput onSubmit={(val) => { setAchievement(val); setPhase('feedback'); }} />
+          )}
+          {!showResumeModal && phase === 'feedback' && (
+            <FeedbackCard plan={plan} seconds={seconds} achievement={achievement} />
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>

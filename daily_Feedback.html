@@ -533,8 +533,10 @@
               weekday: "long",
             }),
             achievement: 87,
-            totalTime: 105, // in minutes
-            comparisonText: "지난주 오늘보다 15분 더 공부했어요", // Example comparison text
+            totalTime: 105, // 실제 학습 시간(분)
+            targetAchievement: 100, // 목표 달성률(%) 추가
+            targetTime: 120, // 목표 학습 시간(분) 추가
+            comparisonText: "지난주 오늘보다 15분 더 공부했어요",
             studyItems: [
               "이차함수 복습: 핵심 개념 및 ax^2 그래프 개형(pp.118-129)",
               "이차함수 문제: 스스로 확인하기 풀기(p.121, p.128, p.133)",
@@ -817,17 +819,29 @@
 
               <div className="summary-stats">
                 <div className="stat-item">
-                  <div className="stat-value">{feedbackData?.achievement != null ? feedbackData.achievement + "%" : "--%"}</div>
-                  <div className="stat-label">목표 달성률</div>
+                  <div className="stat-value">
+                    {feedbackData?.achievement != null ? feedbackData.achievement + "%" : "--%"}
+                    <span style={{ fontSize: 13, color: "#888", marginLeft: 6 }}>
+                      / {feedbackData?.targetAchievement ? feedbackData.targetAchievement + "%" : "--%"}
+                    </span>
+                  </div>
+                  <div className="stat-label">목표 달성률 <span style={{ color: "#aaa" }}>(목표)</span></div>
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${feedbackData?.achievement || 0}%` }}></div>
                   </div>
                 </div>
                 <div className="stat-item">
                   <div className="stat-value">
-                    {feedbackData?.totalTime != null ? `${Math.floor(feedbackData.totalTime / 60)}시간 ${(feedbackData.totalTime % 60)}분` : "--시간 --분"}
+                    {feedbackData?.totalTime != null
+                      ? `${Math.floor(feedbackData.totalTime / 60)}시간 ${(feedbackData.totalTime % 60)}분`
+                      : "--시간 --분"}
+                    <span style={{ fontSize: 13, color: "#888", marginLeft: 6 }}>
+                      / {feedbackData?.targetTime != null
+                        ? `${Math.floor(feedbackData.targetTime / 60)}시간 ${(feedbackData.targetTime % 60)}분`
+                        : "--시간 --분"}
+                    </span>
                   </div>
-                  <div className="stat-label">총 학습 시간</div>
+                  <div className="stat-label">총 학습 시간 <span style={{ color: "#aaa" }}>(목표)</span></div>
                 </div>
               </div>
 
